@@ -1,42 +1,96 @@
 <?php
 namespace App\Http\Controllers;
-
-use App\Services\AuthService;
-use App\Http\Requests\LoginRequest;
-use App\Http\Controllers\Controller;
-use App\Http\Requests\RegisterRequest;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    protected $authService;
 
-    public function __construct(AuthService $authService)
+    public function __construct()
     {
-        $this->authService = $authService;
+        $this->middleware('auth:api', ['except' => ['login','register']]);
     }
 
-    // Register a new user
-    // public function register(RegisterRequest $request)
-    // {
-    //     $data = $request->validated();
-    //     $response = $this->authService->register($data);
-
-    //     return response()->json($response, 201);
-    // }
-
-    // Log in an existing user
-    public function login(LoginRequest $request)
+    public function login(Request $request)
     {
-        $data = $request->validated();
-        $response = $this->authService->login($data);
-    
-        // Check if the response contains an error and handle it accordingly
-        if (isset($response['error']) && $response['error'] === true) {
-            return response()->json(['message' => $response['message']], 401);
+        $request->validate([
+            'email' => 'required|string|email',
+            'password' => 'required|string',
+        ]);
+        $credentials = $request->only('email', 'password');
+
+        $token = Auth::attempt($credentials);
+        if (!$token) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], 401);
         }
-    
-        // If login was successful, return the response with a 200 status
-        return response()->json($response, 200);
+
+        $user = Auth::user();
+        return response()->json([
+                'status' => 'success',
+                'user' => $user,
+                'authorisation' => [
+                    'token' => $token,
+                    'type' => 'bearer',
+                ]
+            ]);
+
     }
+
+    public function register(Request $request)
+    {
+        // Validate the incoming request data
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6',
+        ]);
     
+        // Create the user with hashed password
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+    
+        // Generate a token for the newly created user
+        $token = $user->createToken('API Token')->plainTextToken;
+    
+        // Return a JSON response with user data and token
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User created successfully',
+            'user' => $user,
+            'authorization' => [
+                'token' => $token,
+                'type' => 'bearer',
+            ],
+        ]);
+    }    
+
+    public function logout()
+    {
+        Auth::logout();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Successfully logged out',
+        ]);
+    }
+
+    public function refresh()
+    {
+        return response()->json([
+            'status' => 'success',
+            'user' => Auth::user(),
+            'authorisation' => [
+                'token' => Auth::refresh(),
+                'type' => 'bearer',
+            ]
+        ]);
+    }
+
 }

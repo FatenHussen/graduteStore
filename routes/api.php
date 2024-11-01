@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 
 /*
@@ -17,20 +17,34 @@ use App\Http\Controllers\CategoryController;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+// Authentication routes
+Route::controller(AuthController::class)->group(function () {
+    Route::post('login', 'login');
+    Route::post('register', 'register');
+    Route::post('logout', 'logout');
+    Route::post('refresh', 'refresh');
+});
+
+// Get authenticated user information
+Route::middleware('auth:jwt')->get('/user', function (Request $request) {
     return $request->user();
 });
-// Route for retrieving categories (accessible to all authenticated users)
-Route::middleware('auth:sanctum')->get('/categories', [CategoryController::class, 'index']);
 
-// Routes for admin-only actions (create, update, delete)
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::post('/categories', [CategoryController::class, 'store']);
-    Route::put('/categories/{category}', [CategoryController::class, 'update']);
-    Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
+// Routes for categories
+Route::middleware('auth:jwt')->group(function () {
+    Route::get('/categories', [CategoryController::class, 'index']); // Accessible to all authenticated users
 });
 
+// Admin-only routes for categories (create, update, delete)
+Route::middleware(['auth:jwt', 'admin'])->group(function () {
+    Route::apiResource('categories', CategoryController::class);
+});
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Routes for products
+Route::get('/products', [ProductController::class, 'index']); // Public access to list all products
+Route::get('/products/{product}', [ProductController::class, 'show']); // Public access to show a single product
 
+// Admin-only routes for products (create, update, delete)
+Route::middleware(['auth:jwt', 'admin'])->group(function () {
+    Route::apiResource('products', ProductController::class);
+});

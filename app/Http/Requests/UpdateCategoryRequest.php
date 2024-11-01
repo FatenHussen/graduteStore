@@ -17,4 +17,6 @@ class UpdateCategoryRequest extends FormRequest
             'description' => 'nullable|string',
         ];
     }
+
+    
 }

@@ -1,13 +1,21 @@
 <?php
+
 namespace App\Services;
 
 use App\Models\Category;
 
 class CategoryService
 {
-    public function getAllCategories()
+    public function getAllCategories($search = null)
     {
-        return Category::all();
+        // Check if a search term is provided; if so, filter categories by name
+        $query = Category::query();
+
+        if ($search) {
+            $query->where('name', 'like', '%' . $search . '%');
+        }
+
+        return $query->get();
     }
 
     public function createCategory(array $data)
